@@ -25,73 +25,61 @@ void setup() {
   delay(25);
 }
 
-#define NUMBER_OF_SAMPLES 25
+#define NUMBER_OF_SAMPLES 30
 #define DELAY 10
 #define DP_MASK 0x0080
 
-//unsigned int uptime = 0;
-static int sampleIndex = 0;
+unsigned int uptime = 0;
+static unsigned int sampleIndex = 0;
 static float sumSq = 0.0;
 
+// V [mV] = R * (1100 / 1024) [mV/steps]
+// T [degC] = V / 10 [mV/degC]
+// T = R * ((1100 / 1024) / 10) = R * LM35_CONVERSION_CONSTANT
+#define LM35_CONVERSION_CONSTANT 0.107421875
+
 void loop() {
-  int reading = analogRead(A0);
-  float voltage = reading * (INTERNAL / 1023.0);
-  float tempC = reading / 9.3090909090909090909090909090909;
-  Serial.print("sample ");
-  Serial.print(sampleIndex);
-  Serial.print(": ");
-  Serial.print(tempC, 4);
-  sumSq += sq(tempC);
-  Serial.print(", sumSq=");
-  Serial.println(sumSq, 4);
+  int reading = analogRead(A0); // [0, 1024)
+  sumSq += sq(toF(reading * LM35_CONVERSION_CONSTANT));
   if (++sampleIndex < NUMBER_OF_SAMPLES) {
     delay(DELAY);
+    uptime += DELAY;
     return;
   }
   sampleIndex = 0;
-//  float tempF = toF(tempC);
-//  if (uptime % 1000 == 0) {
-//    Serial.print("V=");
-//    Serial.print(voltage, 5);
-//    Serial.print(" V; T_c=");
-//    Serial.print(tempC, 5);
-//    Serial.print(" C; T_f=");
-//    Serial.print(tempF, 5);
-//    Serial.println(" F");
-//  }
-
   float val = sqrt(sumSq / NUMBER_OF_SAMPLES);
-  sumSq=0.0;
+  sumSq = 0.0;
   Serial.print("avg=");
   Serial.println(val, 4);
+  
   int digits[4];
   formatFloat(val, digits);
   for (int i = 0; i < 4; i++) {
     int val = digits[i];
-    unsigned int packet = (i+1 << 8) | digits[i];
+    unsigned int packet = (i + 1 << 8) | digits[i];
     Serial.print(packet, HEX);
     Serial.print(" ");
     sendData(packet);
   }
   Serial.println("\n");
-  
+
   delay(DELAY);
-//  uptime += DELAY_IN_MS;
+  //  uptime += DELAY_IN_MS;
 }
 
 #define BLANK 0x0F
 #define MINUS 0x0A
 
 /*
- * 4 digits
- * 
- * 0.0 -> " 0.0"
- * 0.5 -> " 0.5"
- * 0.05 -> " 0.0"
- * 100.0 -> "100.0"
- * -10.2 -> "-10.2"
- * -100.5 -> "-100"
- */
+   4 digits
+
+   0.0 -> " 0.0"
+   0.5 -> " 0.5"
+   0.05 -> " 0.0"
+   100.0 -> "100.0"
+   -10.2 -> "-10.2"
+   -100.5 -> "-100"
+*/
 inline int* formatFloat(float input, int values[4]) {
   int val = input * 10;
   boolean ltZero = val < 0;
@@ -99,7 +87,6 @@ inline int* formatFloat(float input, int values[4]) {
   int multiplier = 1000;
   int decimalIndex = 2;
   // Split into array values ABC.D
-  Serial.println(val);
   for (int i = 0; i < 4; i++) {
     values[i] = (val / multiplier) % 10;
     multiplier /= 10;
@@ -110,22 +97,18 @@ inline int* formatFloat(float input, int values[4]) {
   int i;
   for (i = 0; i < 3; i++) {
     if (values[i] != 0) {
-      Serial.print("leading trim on ");
-      Serial.println(i);
       break;
     }
     values[i] = BLANK;
   }
   int firstSigFig = i;
-  Serial.print("firstSig=");
-  Serial.println(firstSigFig);
   if (ltZero) {
-    if (firstSigFig == 0){
-        copyRight(values);
-        decimalIndex++;
-        firstSigFig++;
+    if (firstSigFig == 0) {
+      copyRight(values);
+      decimalIndex++;
+      firstSigFig++;
     }
-    values[firstSigFig-1] = MINUS;        
+    values[firstSigFig - 1] = MINUS;
   }
   values[decimalIndex] |= DP_MASK;
   return values;
@@ -133,12 +116,12 @@ inline int* formatFloat(float input, int values[4]) {
 
 inline void copyRight(int values[4]) {
   for (int i = 3; i > 0; i--) {
-    values[i] = values[i-1];
+    values[i] = values[i - 1];
   }
   values[0] = BLANK;
 }
 
-void sendData(unsigned int packet) {
+inline void sendData(unsigned int packet) {
   SPI.beginTransaction(settings);
   digitalWrite(LOAD, LOW);
   SPI.transfer16(packet);
@@ -146,7 +129,7 @@ void sendData(unsigned int packet) {
   SPI.endTransaction();
 }
 
-float toF(float inC) {
+inline float toF(float inC) {
   float result;
   result = (inC * 9.0 / 5.0) + 32.0;
   return result;
