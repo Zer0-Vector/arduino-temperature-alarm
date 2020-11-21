@@ -1,18 +1,30 @@
 #include <SPI.h>
 
-const unsigned int USE_ONLY_4DIGITS = 0x0B03;
-const unsigned int DECODE_FOR_DIGITS0_3 = 0x090F;
-const unsigned int FULL_INTENSITY = 0x0A0F;
-const unsigned int NORMAL_OPERATION = 0x0C01;
-const unsigned int SHUTDOWN_OPERATION = 0x0C00;
+#define USE_ONLY_4DIGITS (uint8_t)0x0B03
+#define DECODE_FOR_DIGITS0_3 (uint8_t)0x090F
+#define FULL_INTENSITY (uint8_t)0x0A0F
+#define NORMAL_OPERATION (uint8_t)0x0C01
+#define SHUTDOWN_OPERATION (uint8_t)0x0C00
 
-#define LOAD 10
+#define LOAD_PIN 10
+#define LED_YELLOW_PIN 2
+#define LED_RED_PIN 4
+#define LED_GREEN_PIN 5
+
+#define NUMBER_OF_SAMPLES 128
+#define DELAY 15
+#define DP_MASK 0x0080
+
+#define DEBUG
 
 SPISettings settings(9500000, MSBFIRST, SPI_MODE0);
 
 void setup() {
   analogReference(INTERNAL);
-  pinMode(LOAD, OUTPUT);
+  pinMode(LOAD_PIN, OUTPUT);
+  // pinMode(LED_YELLOW_PIN, OUTPUT);
+  // pinMode(LED_RED_PIN, OUTPUT);
+  // pinMode(LED_GREEN_PIN, OUTPUT);
   Serial.begin(9600);
   SPI.begin();
   delay(25);
@@ -23,48 +35,82 @@ void setup() {
   sendData(USE_ONLY_4DIGITS);
   sendData(NORMAL_OPERATION);
   delay(25);
+
+  // digitalWrite(LED_YELLOW_PIN, LOW);
+  // digitalWrite(LED_RED_PIN, LOW);
+  // digitalWrite(LED_GREEN_PIN, LOW);
+  // delay(250);
+
+  // digitalWrite(LED_GREEN_PIN, HIGH);
+  
+  // delay(500);
+  // digitalWrite(LED_RED_PIN, HIGH);
+  // digitalWrite(LED_GREEN_PIN, LOW);
+  
+  // delay(500);
+  // digitalWrite(LED_YELLOW_PIN, HIGH);
+  // digitalWrite(LED_RED_PIN, LOW);
+  
+  // delay(500);
+  // digitalWrite(LED_GREEN_PIN, HIGH);
+  // digitalWrite(LED_YELLOW_PIN, LOW);
+  // delay(500);
+  // digitalWrite(LED_RED_PIN, HIGH);
+  // delay(500);
+  // digitalWrite(LED_YELLOW_PIN, HIGH);
+  // delay(2000);
+  // digitalWrite(LED_YELLOW_PIN, LOW);
+  // digitalWrite(LED_RED_PIN, LOW);
+  // digitalWrite(LED_GREEN_PIN, LOW);
+  // delay(250);
 }
 
-#define NUMBER_OF_SAMPLES 30
-#define DELAY 10
-#define DP_MASK 0x0080
-
-unsigned int uptime = 0;
+#ifdef DEBUG
+static unsigned int uptime = 0;
+#endif
 static unsigned int sampleIndex = 0;
-static float sumSq = 0.0;
+static double sumSq = 0.0;
 
 // V [mV] = R * (1100 / 1024) [mV/steps]
 // T [degC] = V / 10 [mV/degC]
 // T = R * ((1100 / 1024) / 10) = R * LM35_CONVERSION_CONSTANT
-#define LM35_CONVERSION_CONSTANT 0.107421875
+#define LM35_CONVERSION_CONSTANT ((double)0.107421875)
 
 void loop() {
   int reading = analogRead(A0); // [0, 1024)
-  sumSq += sq(toF(reading * LM35_CONVERSION_CONSTANT));
+#ifdef DEBUG
+  uptime = millis() - uptime;
+#endif
+  sumSq += sq(reading * LM35_CONVERSION_CONSTANT);
   if (++sampleIndex < NUMBER_OF_SAMPLES) {
     delay(DELAY);
-    uptime += DELAY;
     return;
   }
   sampleIndex = 0;
-  float val = sqrt(sumSq / NUMBER_OF_SAMPLES);
+  double val = toF(sqrt(sumSq / NUMBER_OF_SAMPLES));
   sumSq = 0.0;
-  Serial.print("avg=");
+#ifdef DEBUG
+  Serial.println(uptime);
+  Serial.print(F("avg="));
   Serial.println(val, 4);
+#endif
   
   int digits[4];
   formatFloat(val, digits);
   for (int i = 0; i < 4; i++) {
     int val = digits[i];
     unsigned int packet = (i + 1 << 8) | digits[i];
+#ifdef DEBUG    
     Serial.print(packet, HEX);
-    Serial.print(" ");
+    Serial.print(F(" "));
+#endif
     sendData(packet);
   }
-  Serial.println("\n");
+#ifdef DEBUG
+  Serial.println(F("\n"));
+#endif
 
   delay(DELAY);
-  //  uptime += DELAY_IN_MS;
 }
 
 #define BLANK 0x0F
@@ -80,7 +126,7 @@ void loop() {
    -10.2 -> "-10.2"
    -100.5 -> "-100"
 */
-inline int* formatFloat(float input, int values[4]) {
+inline int* formatFloat(double input, int values[4]) {
   int val = input * 10;
   boolean ltZero = val < 0;
   val = abs(val);
@@ -123,14 +169,12 @@ inline void copyRight(int values[4]) {
 
 inline void sendData(unsigned int packet) {
   SPI.beginTransaction(settings);
-  digitalWrite(LOAD, LOW);
+  digitalWrite(LOAD_PIN, LOW);
   SPI.transfer16(packet);
-  digitalWrite(LOAD, HIGH);
+  digitalWrite(LOAD_PIN, HIGH);
   SPI.endTransaction();
 }
 
-inline float toF(float inC) {
-  float result;
-  result = (inC * 9.0 / 5.0) + 32.0;
-  return result;
+inline double toF(double inC) {
+  return (inC * 9.0 / 5.0) + 32.0;
 }
