@@ -12,16 +12,16 @@ SPISettings settings(9500000, MSBFIRST, SPI_MODE0);
 
 void setup() {
   analogReference(INTERNAL);
-  pinMode(LOAD, OUTPUT);
+  pinMode(LOAD_PIN, OUTPUT);
   Serial.begin(9600);
   SPI.begin();
   delay(25);
-  sendData(SHUTDOWN_OPERATION);
+  displayData(SHUTDOWN_OPERATION);
   delay(25);
-  sendData(FULL_INTENSITY);
-  sendData(DECODE_FOR_DIGITS0_3);
-  sendData(USE_ONLY_4DIGITS);
-  sendData(NORMAL_OPERATION);
+  displayData(FULL_INTENSITY);
+  displayData(DECODE_FOR_DIGITS0_3);
+  displayData(USE_ONLY_4DIGITS);
+  displayData(NORMAL_OPERATION);
   delay(25);
 }
 
@@ -59,7 +59,7 @@ void loop() {
     unsigned int packet = (i + 1 << 8) | digits[i];
     Serial.print(packet, HEX);
     Serial.print(" ");
-    sendData(packet);
+    displayData(packet);
   }
   Serial.println("\n");
 
@@ -121,11 +121,11 @@ inline void copyRight(int values[4]) {
   values[0] = BLANK;
 }
 
-inline void sendData(unsigned int packet) {
+inline void displayData(unsigned int packet) {
   SPI.beginTransaction(settings);
-  digitalWrite(LOAD, LOW);
+  digitalWrite(LOAD_PIN, LOW);
   SPI.transfer16(packet);
-  digitalWrite(LOAD, HIGH);
+  digitalWrite(LOAD_PIN, HIGH);
   SPI.endTransaction();
 }
 
