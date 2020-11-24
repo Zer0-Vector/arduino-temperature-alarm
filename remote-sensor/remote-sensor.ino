@@ -1,5 +1,11 @@
 #include <RH_ASK.h>
+
+#define LM35_LOAD_PIN A7
+#define LM35_UNITS LM35_FAHRENHEIT
+
 #include <LM35.h>
+
+#include "Debounced.h"
 
 #define RF_BITRATE 2000
 #define RF_PIN_RX 255
@@ -12,103 +18,63 @@
 #define DEBUG
 
 static RH_ASK rf;
-static LM35 temp(A7);
-static byte id = 1;
+static LM35 temp;
 
-#define DEFAULT_DEBOUNCE_DELAY 50
-class Debounced {
-    public:
-        Debounced(uint8_t dpin, unsigned long delay = DEFAULT_DEBOUNCE_DELAY);
-        /**
-         * returns true if value has changed
-         */
-        bool read();
-        int value();
-        void setValue(int value);
-    private:
-        uint8_t _pin;
-        unsigned long _delay;
-        int _value;
-        int _lastValue;
-        int _lastTime;
-};
-
-Debounced::Debounced(uint8_t dpin, unsigned long delay)
-: _pin(dpin), _delay(delay), _value(-1), _lastTime(0)
-{}
-
-bool Debounced::read() {
-    int reading = digitalRead(this->_pin);
-    if (reading != this->_lastValue) {
-        this->_lastTime = millis();
-    }
-    this->_lastValue = reading;
-    if (millis() - this->_lastTime > this->_delay) {
-        this->_value = reading;
-        return true;
-    }
-    return false;
-}
-
-int Debounced::value() {
-    return this->_value;
-}
-void Debounced::setValue(int value) {
-    this->_value = value;
-}
-
-
-
-static Debounced d1State(DIP1);
-static Debounced d2State(DIP2);
+static String id;
 
 void setup() {
-#ifdef DEBUG
-    analogReference(INTERNAL);
+    analogReference(DEFAULT);
+    Serial.begin(9600);
+    Serial.println("started setup");
     pinMode(DIP1, INPUT);
     pinMode(DIP2, INPUT);
-    Serial.begin(9600);
-#endif
     if (!rf.init()) {
 #ifdef DEBUG
-        Serial.println("init RF module failed");
+    Serial.println(F("init RF module failed"));
 #endif
     } else {
         rf.setModeTx();
     }
-    
+    // testdrawstyles();
+    Debounced d1 = Debounced(DIP1);
+    Debounced d2 = Debounced(DIP2);
+
+    delay(2000);
+    bool d1change = false;
+    bool d2change = false;
+    int start = millis();
+    do {
+        d1change = d1.read();
+        d2change = d2.read();
+    } while ((!d1change && !d2change) || (millis() - start) > 10000);
+    Serial.println(d1.value());
+    Serial.println(d2.value());
+    byte tmpid = d1.value() + (d2.value() << 1);
+    String hexId = String((tmpid & 0x00F0) >> 4, HEX);
+    hexId = hexId + String((tmpid & 0x000F), HEX);
+    id = hexId;
+#ifdef DEBUG 
+    Serial.print(F("Started id="));
+    Serial.println(id);
+#endif
 }
 
 void loop() {
-    
-    d1State.read();
-    d2State.read();
-
-    id = d1State.value() + (d2State.value() << 1);
-
     if (!temp.sampleTemp()) {
         return;
     }
 
-    Serial.print("d1=");
-    Serial.print(d1State.value());
-    Serial.print(", d2=");
-    Serial.println(d2State.value());
-
-    double t = temp.currentTemp();
-    String hexId = String((id & 0x00F0) >> 4, HEX);
-    hexId = hexId + String((id & 0x000F), HEX);
-    Serial.println(hexId);
+    double t = temp.tempAsF();
+    Serial.println(t,3);
     String stemp = String(t, 3);
-    Serial.println(stemp);
-    String msg = hexId + stemp;
-    // msg[0] = hexId.charAt(0);
-    // msg[1] = hexId.charAt(1);
-    // for (unsigned int i = 0; i < stemp.length(); i++) {
-    //     char c = stemp.charAt(i);
-    //     msg[2+i] = c;
-    // }
-    
+    String msg = id + stemp + "\0";
+
+#ifdef DEBUG
+    Serial.println(millis());
+//     Serial.println(stemp);
+//     Serial.println(msg);
+#endif
+
     rf.send((uint8_t*)msg.c_str(), msg.length());
     rf.waitPacketSent();
 #ifdef DEBUG
@@ -118,7 +84,26 @@ void loop() {
     Serial.print("): sent \"");
     Serial.print(msg);
     Serial.println("\"");
-    Serial.println(msg.c_str());
 #endif
     delay(1500);
 }
+
+// void testdrawstyles(void) {
+//   display.clearDisplay();
+
+//   display.setTextSize(1);             // Normal 1:1 pixel scale
+//   display.setTextColor(SSD1306_WHITE);        // Draw white text
+//   display.setCursor(0,0);             // Start at top-left corner
+//   display.println(F("Hello, world!"));
+
+//   display.setTextColor(SSD1306_BLACK, SSD1306_WHITE); // Draw 'inverse' text
+//   display.println(3.141592);
+
+//   display.setTextSize(2);             // Draw 2X-scale text
+//   display.setTextColor(SSD1306_WHITE);
+//   display.print(F("0x"));
+//   display.println(0xDEADBEEF, HEX);
+
+//   display.display();
+//   delay(2000);
+// }
