@@ -11,7 +11,8 @@
             ],
             "defines": [
                 "UNICODE",
-                "_UNICODE"
+                "_UNICODE",
+                "USBCON"
             ],
             "windowsSdkVersion": "10.0.18362.0",
             "compilerPath": "${env:ProgramFiles(x86)}/Microsoft Visual Studio/2019/BuildTools/VC/Tools/MSVC/14.24.28314/bin/Hostx64/x64/cl.exe",

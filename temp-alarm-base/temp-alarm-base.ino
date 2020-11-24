@@ -1,4 +1,8 @@
+#include <SSD1306Ascii.h>
+#include <SSD1306AsciiAvrI2c.h>
+
 // #include <LiquidCrystal.h>
+#define LM35_UNITS LM35_FAHRENHEIT
 #include <LM35.h>
 #include <RH_ASK.h>
 #include "temp-alarm-base.h"
@@ -21,8 +25,17 @@
 
 #define DEBUG
 
-// static LiquidCrystal lcd(LCD_PIN_RS, LCD_PIN_E, LCD_PIN_D0, LCD_PIN_D1, LCD_PIN_D2, LCD_PIN_D3);
 static RH_ASK rf;
+static SSD1306AsciiAvrI2c oled;
+
+#define I2C_ADDRESS 0X3C
+
+#ifdef DEBUG
+static uint16_t lastTime = 0L;
+#endif
+
+static LM35 temp;
+static uint8_t labelWidth;
 
 void setup() {
   analogReference(INTERNAL);
@@ -34,22 +47,40 @@ void setup() {
     Serial.println(F("init RF module failed!"));
 #endif
   } else {
+    delay(1500);
+    rf.setModeRx();
 #ifdef DEBUG
-    delay(2000);
     Serial.println(F("RF module init done"));
 #endif
-    rf.setModeRx();
   }
+
+  Serial.println("starting display");
+  oled.begin(&Adafruit128x64, I2C_ADDRESS);
+  oled.setFont(font8x8);
+  oled.clear();
+  oled.println();
+  uint8_t currentWidth = 0;
+  const char* label = "Base:";
+  oled.print(label);
+  labelWidth = oled.strWidth(label);
+  currentWidth += labelWidth;
+  oled.setFont(Adafruit5x7);
+  oled.set2X();
+  const char* blankTemp = "    ";
+  currentWidth += oled.strWidth(blankTemp);
+  oled.print(blankTemp);
+  oled.setFont(font8x8);
+  oled.set1X();
+  oled.setCursor(currentWidth+2, 0);
+  oled.print("o");
+  oled.setFont(Adafruit5x7);
+  oled.set2X();
+  oled.println("F");
 }
 
-#ifdef DEBUG
-static uint16_t lastTime = 0L;
-#endif
 
-static LM35 temp(A0, NUMBER_OF_SAMPLES, FARENHEIGHT, SAMPLING_DELAY);
 
 #define TEMP_TIMEOUT 2500
-
 
 RemoteTemp parseTemp(char* msg) {
   RemoteTemp t;
@@ -102,28 +133,34 @@ void loop() {
   // sumSq = 0.0;
 #ifdef DEBUG
  Serial.print(F("BASE temp: "));
- Serial.println(temp.currentTemp(), 4);
+ Serial.println(temp.tempAsF(), 3);
  Serial.println();
+ 
+  oled.setCursor(labelWidth, 0);
+  oled.println(temp.tempAsF(), 1);
+
  for (int i = 0; i < 8; i++) {
    RemoteTemp t = temps[i];
    if (isTempExpired(t)) {
      t.id = -1;
    }
    if (t.id >= 0) {
-     Serial.print("Sensor ");
+     oled.setFont(font8x8);
+     oled.setCursor(0, 25);
+     oled.set1X();
+     oled.print("Sen");
+     oled.print(t.id);
+     oled.print(":");
+     oled.setCursor(labelWidth, 9);
+     oled.setFont(Adafruit5x7);
+     oled.set2X();
+     oled.println(t.value, 1);
+     Serial.print(F("Sensor "));
      Serial.print(t.id);
-     Serial.print(": ");
+     Serial.print(F(": "));
      Serial.println(t.value, 3);
    }
  }
 #endif
-//  // lcd.setCursor(0,1);
-//  // lcd.print(val, 2);
-//  // lcd.print("   ");
-//  // lcd.print(uptime/1000.0, 2);
   delay(SAMPLING_DELAY);
-}
-
-inline double toF(double inC) {
-  return (inC * 9.0 / 5.0) + 32.0;
 }
