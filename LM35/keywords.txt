@@ -1,0 +1,3 @@
+LM35 KEYWORD1
+sampleTemp KEYWORD2
+currentTemp KEYWORD2

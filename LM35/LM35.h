@@ -1,35 +1,49 @@
 #ifndef _LM35_H_
 #define _LM35_H_
+#pragma once
 
 #include <Arduino.h>
 
+#define _XSTR(x) #x
+#define _STR(x) _XSTR(x)
+
+// with analogReference(INTERNAL) (on Uno/Nano)
 // V [mV] = R * (1100 / 1024) [mV/steps]
 // T [degC] = V / 10 [mV/degC]
 // T = R * ((1100 / 1024) / 10) = R * LM35_CONVERSION_CONSTANT
-#define LM35_CONVERSION_CONSTANT ((double)0.107421875)
-typedef byte tempUnits_t;
-#define FARENHEIGHT (tempUnits_t)0
-#define CELCIUS (tempUnits_t)1
+#define _LM35_CONVERSION_CONSTANT 0.107421875
+
+#ifndef LM35_SAMPLE_SIZE
+#define LM35_SAMPLE_SIZE 64
+#endif
+#pragma message("LM35_SAMPLE_SIZE " _STR(LM35_SAMPLE_SIZE))
+
+#ifndef LM35_LOAD_PIN
+#define LM35_LOAD_PIN A0
+#endif
+#pragma message("LM35 PIN " _STR(LM35_LOAD_PIN))
+
+#ifndef LM35_SAMPLING_DELAY
+#define LM35_SAMPLING_DELAY 25
+#endif
 
 class LM35 {
   public:
-    LM35(uint8_t pin = A0, uint8_t numberOfSamples = 64, tempUnits_t units = FARENHEIGHT, uint8_t delayAfterReading = 25);
+    LM35();
+
     /**
      * returns true if temperature was updated
      */
     bool sampleTemp();
-    double currentTemp();
-    void setUnits(tempUnits_t units);
+    /**
+     * returns last sampled temp
+     */
+    double tempAsC();
+    double tempAsF();
   private:
-    uint8_t _pin;
-    uint8_t _numberOfSamples;
-    tempUnits_t _units;
-    uint8_t _delayAfterReading;
     double _sumOfSquares;
     uint8_t _sampleCounter;
     double _lastTempAsC;
-    double tempAsC();
-    double tempAsF();
 };
 
-#endif
+#endif // _LM35_H_
