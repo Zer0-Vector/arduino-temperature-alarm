@@ -2,5 +2,5 @@
     "board": "arduino:avr:uno",
     "port": "COM4",
     "sketch": "temp-alarm-base.ino",
-    "programmer": "AVRISP mkII"
+    "output": "build"
 }
