@@ -1,7 +1,5 @@
-// #include <SSD1306Ascii.h>
 #include <SSD1306AsciiAvrI2c.h>
 
-// #include <LiquidCrystal.h>
 #define LM35_UNITS LM35_FAHRENHEIT
 #include <LM35.h>
 #include <RH_ASK.h>
@@ -91,7 +89,6 @@ bool isTempExpired(RemoteTemp t) {
   return elapsed - t.lastMessageTime > TEMP_TIMEOUT;
 }
 
-
 void loop() {
   elapsed = millis() - startTime;
   uint8_t *buf = (uint8_t*)malloc(10*sizeof(uint8_t)); 
@@ -115,6 +112,7 @@ void loop() {
       }
       if (!found) {
         Serial.print("New sensor. count=");
+
         Serial.println(remoteCount);
         temps[remoteCount++] = tmsg;
       }
@@ -122,17 +120,15 @@ void loop() {
   }
   free(buf);
   
-  double baseTemp = temp.tempAsF();
-  double sum = baseTemp;
   if (!temp.sampleTemp()) {
     return;
   }
-  mem("after_sample");
+  double baseTemp = temp.tempAsF();
+  double sum = baseTemp;
 
 #ifdef DEBUG
  Serial.print(F("BASE temp: "));
  Serial.println(baseTemp, 3);
- Serial.println();
 #endif
 
   for (int i = 0; i < 8; i++) {
@@ -164,7 +160,6 @@ void loop() {
   oled.home();
   oled.setFont(_ALPHANUMERIC_FONT);
   oled.set1X();
-  Serial.println();
   if (remoteCount > 0) {
     printAvgAndCycle(sum);
   } else {
