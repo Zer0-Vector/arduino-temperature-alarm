@@ -6,6 +6,8 @@
 #include <SSD1306AsciiAvrI2c.h>
 #include <EEPROM.h>
 
+#include "states/TempAlarmControl.h"
+
 #define I2C_ADDRESS 0x3C
 #define RST_PIN -1
 
