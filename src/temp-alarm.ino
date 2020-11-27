@@ -1,190 +1,139 @@
-#include <RH_ASK.h>
+#include <Keypad.h>
 
 #define LM35_LOAD_PIN A7
-
+#define LM35_SAMPLE_SIZE 128
 #include <LM35.h>
-
 #include <SSD1306AsciiAvrI2c.h>
-#include "Debounced.h"
+#include <EEPROM.h>
 
 #define I2C_ADDRESS 0x3C
 #define RST_PIN -1
 
-#define RF_BITRATE 2000
-#define RF_PIN_RX 255
-#define RF_PIN_TX 03
-#define RF_PIN_PTT 255
+#define KEYPAD_ROWS 4
+#define KEYPAD_COLS 4
 
 #define DEBUG
 
-static RH_ASK rf;
-static LM35 temp(1100);
-
-uint8_t id = 0; // TODO make configurable
+static LM35 temp(1500);
 
 const unsigned long startTime = millis();
 
+const char hexaKeys[KEYPAD_ROWS][KEYPAD_COLS] = {
+    { '1', '2', '3', 'A' },
+    { '4', '5', '6', 'B' },
+    { '7', '8', '9', 'C' },
+    { '*', '0', '#', 'D' },
+};
+
+byte rowPins[KEYPAD_ROWS] = { 12, 11, 10, 9 };
+byte colPins[KEYPAD_COLS] = { 8, 7, 6, 5 };
+
+Keypad kp = Keypad((char*)hexaKeys, rowPins, colPins, KEYPAD_ROWS, KEYPAD_COLS);
 SSD1306AsciiAvrI2c oled;
 
-uint8_t labelRowHeight;
-unsigned int spinnerX;
-unsigned int idX;
+// TODO 1. store alarm values
+// TODO 2. make alarm sound/flash light
+// TOOD 4. use keypad to configure alarm values
+// TODO 5. use keypad to switch from F to C
+// TODO 6. use keypad to calibrate
 
-#define LABEL_FONT Verdana12
-#define ALPHA_FONT utf8font10x16
+#define TEMP_FONT TimesNewRoman16_bold
+#define ALPHA_FONT Callibri15
+#define UTF_FONT utf8font10x16
 #define TEMP_DISPLAY_UPDATE_DELAY 2000
 #define BROADCAST_DELAY 250
 #define LOOP_DELAY 100
 
-#define ID_PIN_8 5
-#define ID_PIN_4 6
-#define ID_PIN_2 7
-#define ID_PIN_1 8
+#define MAX_UNSET 127
+#define MIN_UNSET -128
+
+#define MIN_MIN_TEMP_C 2
+#define MAX_MAX_TEMP_C 126
+
+#define MIN_TEMP_EEPROM_ADDRESS
+#define MAX_TEMP_EEPROM_ADDRESS
+
+int8_t minTemp = MIN_UNSET;
+int8_t maxTemp = MAX_UNSET;
+
+/**
+ * A=set max
+ * B=set min
+ * C=C/F 
+ * D=cancel/return to normal state/silence alarm
+ * #=.
+ * *=display on/off (display turns off after 5 second delay)
+ */
+
 
 void setup() {
     analogReference(DEFAULT);
-    pinMode(ID_PIN_8, INPUT);
-    pinMode(ID_PIN_4, INPUT);
-    pinMode(ID_PIN_2, INPUT);
-    pinMode(ID_PIN_1, INPUT);
 
     Serial.begin(9600);
     Serial.println("started setup");
     oled.begin(&Adafruit128x64, I2C_ADDRESS);
-    if (!rf.init()) {
-#ifdef DEBUG
-    Serial.println(F("init RF module failed"));
-#endif
-    } else {
-        rf.setModeTx();
-    }
-
     delay(2000);
-    id = readId();
-#ifdef DEBUG 
-    Serial.print(F("Started id="));
-    Serial.println(id);
-#endif
-    oled.setFont(LABEL_FONT);
     oled.set2X();
-    oled.clear();
-    String* idstr = new String(id, HEX);
-    String* label = new String("Sensor " + *idstr);
-    oled.println(*label);
-    spinnerX = oled.strWidth(label->c_str()) + (oled.fontWidth()/2);
-    idX = oled.strWidth(label->c_str()) - oled.strWidth(idstr->c_str());
-    labelRowHeight = oled.fontRows();
-    Serial.println(labelRowHeight);
-    delete idstr;
-    delete label;
-}
-
-uint8_t readId() {
-    uint8_t newId = 0;
-    newId |= digitalRead(ID_PIN_8) << 3;
-    newId |= digitalRead(ID_PIN_4) << 2;
-    newId |= digitalRead(ID_PIN_2) << 1;
-    newId |= digitalRead(ID_PIN_1);
-    return newId;
 }
 
 unsigned long lastPrintTime = 0;
 unsigned long lastBroadcast = 0;
 char signalIcon = '|';
 bool hasValidTemp = false;
+uint8_t lastMag = 0;
 
 unsigned long elapsed() {
     return millis() - startTime;
 }
 
-void drawSpinner(bool invertIt) {
-    oled.setFont(LABEL_FONT);
-    oled.set2X();
-    oled.setCursor(spinnerX , 0);
-    // invert icon if broadcasting
-    oled.setInvertMode(invertIt);
-    oled.print(signalIcon);
-    
-    // rotate signal icon
-    switch (signalIcon) {
-        case '|':
-            signalIcon = '\\';
-            break;
-        case '\\':
-            signalIcon = '-';
-            break;
-        case '-':
-            signalIcon = '/';
-            break;
-        case '/':
-            signalIcon = '|';
-            break;
-    }
-}
+#define LEFT_PADDING 3
+
+bool keydown = false;
+char currentKey = NULL;
+unsigned long keydownTime = 0;
+#define KEYDOWN_DECAY 250
 
 void loop() {
-    uint8_t newId = readId();
-    if (newId != id) {
-        Serial.print("new id=");
-        Serial.println(id);
-        id = newId;
-        oled.set2X();
-        oled.setInvertMode(false);
-        oled.setCursor(idX,0);
-        oled.print(id, HEX);
+    oled.setFont(TEMP_FONT);
+    uint8_t rows = oled.fontRows();
+    currentKey = kp.getKey();
+    if (currentKey) {
+        keydown = true;
+        keydownTime = elapsed();
+        oled.setFont(ALPHA_FONT);
+        Serial.println(currentKey);
+        oled.setCursor(LEFT_PADDING, rows);
+        oled.print(currentKey);
+    } else if (keydown && (elapsed() - keydownTime) > KEYDOWN_DECAY) {
+        keydown = false;
+        oled.clear(0,128,rows,2*rows);
     }
-    unsigned long sinceLastBroadcast = elapsed() - lastBroadcast;
-    bool shouldBroadcast = (sinceLastBroadcast > BROADCAST_DELAY);
-    if(!temp.sampleTemp() && !shouldBroadcast) {
-        drawSpinner(false);
-        delay(LOOP_DELAY);
+
+    if(!temp.sampleTemp()) {
         return;
     }
-    unsigned long sinceLastPrint = elapsed() - lastPrintTime;
-    bool shouldUpdateDisplay = (sinceLastPrint > TEMP_DISPLAY_UPDATE_DELAY);
-    drawSpinner(shouldBroadcast);
-    if (!shouldUpdateDisplay && !shouldBroadcast) {
-        delay(LOOP_DELAY);
-        return; // nothing to do
-    }
-    
+
     double t = temp.tempAsF();
     Serial.println(t,3);
-    char *msg = (char*)malloc(10*sizeof(char));
     char *cstemp = (char*)malloc(8*sizeof(char));
     uint8_t mag = (uint8_t)log10(abs(t));
     dtostrf(t, 3 + mag, 1, cstemp);
 
-    if (shouldUpdateDisplay) {
-        Serial.print("update display temp: ");
-        Serial.println(cstemp);
+    Serial.print("update display temp: ");
+    Serial.println(cstemp);
+    if (mag != lastMag) {
+        oled.clear();
+    }
+    lastMag = mag;
 
-        oled.clear(0, 128, labelRowHeight, oled.fontRows() + labelRowHeight + 1);
-        oled.setInvertMode(false);
-        oled.setFont(ALPHA_FONT);
-        oled.set2X();
-        oled.setCursor(0,labelRowHeight);
-        oled.print(cstemp);
-        oled.print('\260');
-        oled.print('F');
-        lastPrintTime = elapsed();
-    }
-    snprintf(msg, 9, "%02d%s", id, cstemp);
+    oled.setFont(TEMP_FONT);
+    oled.setCursor(LEFT_PADDING, 0);
+    oled.print(cstemp);
+    oled.setFont(UTF_FONT);
+    oled.print('\260');
+    oled.setFont(TEMP_FONT);
+    oled.println('F');
     free(cstemp);
-    if (shouldBroadcast) {
-        rf.send((uint8_t*)msg, strlen(msg));
-        rf.waitPacketSent();
-        lastBroadcast = elapsed();
-#ifdef DEBUG
-        Serial.print(elapsed());
-        Serial.print("(");
-        Serial.print(id);
-        Serial.print("): sent \"");
-        Serial.print(msg);
-        Serial.println("\"");
-#endif
-    }
-    free(msg);
 
     delay(LOOP_DELAY);
 }
