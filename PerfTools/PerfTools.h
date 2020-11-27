@@ -10,14 +10,11 @@ Serial.print("elapsed for " #NAME ": ");\
 Serial.println(timer_elapsed_ ## NAME);\
 } while(false)
 
-void memchk(const char * label) {
-    Serial.print(label);
-    Serial.print(" ");
-    memchk();
-}
-
-void memchk() {
-    Serial.print("heap free: ");
+void memchk(const char * label = NULL) {
+    if (label != NULL) {
+        Serial.print(label);
+        Serial.print(" ");
+    }
     Serial.println(freeMemory());
 }
 

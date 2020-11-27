@@ -1,7 +1,8 @@
 #include <RH_ASK.h>
 
 #define LM35_LOAD_PIN A7
-
+#define LM35_SAMPLE_SIZE 32
+#define LM35_SAMPLING_DELAY 5
 #include <LM35.h>
 
 #include "SSD1306AsciiAvrI2c.h"
@@ -17,6 +18,14 @@
 
 #define DEBUG
 
+#define TIMERSTART(NAME) unsigned long timer_ ## NAME = millis()
+#define TIMEREND(NAME) do {\
+unsigned long timer_elapsed_ ## NAME = millis() - timer_ ## NAME;\
+Serial.print("elapsed for " #NAME ": ");\
+Serial.println(timer_elapsed_ ## NAME);\
+} while(false)
+
+
 static RH_ASK rf;
 static LM35 temp;
 
@@ -29,11 +38,7 @@ SSD1306AsciiAvrI2c oled;
 uint8_t labelRowHeight;
 size_t labelWidth;
 
-#define LABEL_FONT Verdana12
-#define ALPHA_FONT utf8font10x16
-#define TEMP_DISPLAY_UPDATE_DELAY 1000
-#define BROADCAST_DELAY 400
-#define LOOP_DELAY 100
+#define LABEL_FONT Verdana12_bold
 
 void setup() {
     analogReference(DEFAULT);
@@ -64,6 +69,11 @@ void setup() {
     Serial.println(labelRowHeight);
 }
 
+#define ALPHA_FONT fixed_bold10x15
+#define TEMP_DISPLAY_UPDATE_DELAY 1000
+#define BROADCAST_DELAY 333
+#define LOOP_DELAY 100
+
 unsigned long lastPrintTime = 0;
 unsigned long lastBroadcast = 0;
 char signalIcon = '|';
@@ -73,12 +83,26 @@ unsigned long elapsed() {
     return millis() - startTime;
 }
 
-void drawSpinner(bool invertIt) {
+void loop() {
+    bool hasUpdate = temp.sampleTemp();
+    hasValidTemp |= hasUpdate;
+    unsigned long sinceLastPrint = elapsed() - lastPrintTime;
+    unsigned long sinceLastBroadcast = elapsed() - lastBroadcast;
+
+    // Serial.print(elapsed());
+    // Serial.print("] since last print: ");
+    // Serial.print(sinceLastPrint);
+    // Serial.print(", last broadcast: ");
+    // Serial.println(sinceLastBroadcast);
+
+    bool shouldUpdateDisplay = hasUpdate && (sinceLastPrint > TEMP_DISPLAY_UPDATE_DELAY);
+    bool shouldBroadcast = hasValidTemp && (sinceLastBroadcast > BROADCAST_DELAY);
+
     oled.setFont(LABEL_FONT);
-    oled.set2X();
+    oled.set1X();
     oled.setCursor(labelWidth , 0);
     // invert icon if broadcasting
-    oled.setInvertMode(invertIt);
+    oled.setInvertMode(shouldBroadcast);
     oled.print(signalIcon);
     
     // rotate signal icon
@@ -96,24 +120,11 @@ void drawSpinner(bool invertIt) {
             signalIcon = '|';
             break;
     }
-}
-
-void loop() {
-    unsigned long sinceLastBroadcast = elapsed() - lastBroadcast;
-    bool shouldBroadcast = (sinceLastBroadcast > BROADCAST_DELAY);
-    if(!temp.sampleTemp()) {
-        drawSpinner(false);
-        delay(LOOP_DELAY / 4);
-        return;
-    }
-    unsigned long sinceLastPrint = elapsed() - lastPrintTime;
-    bool shouldUpdateDisplay = (sinceLastPrint > TEMP_DISPLAY_UPDATE_DELAY);
-    drawSpinner(shouldBroadcast);
     if (!(shouldUpdateDisplay || shouldBroadcast)) {
-        delay(LOOP_DELAY / 4);
+        delay(LOOP_DELAY*3);
         return; // nothing to do
     }
-    
+
     double t = temp.tempAsF();
     Serial.println(t,3);
     char *msg = (char*)malloc(10*sizeof(char));
@@ -131,7 +142,9 @@ void loop() {
         oled.set2X();
         oled.setCursor(0,labelRowHeight);
         oled.print(cstemp);
+        oled.setFont(utf8font10x16);
         oled.print('\260');
+        oled.setFont(ALPHA_FONT);
         oled.print('F');
         lastPrintTime = elapsed();
     }
