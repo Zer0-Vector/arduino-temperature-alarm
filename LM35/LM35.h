@@ -11,7 +11,8 @@
 // V [mV] = R * (1100 / 1024) [mV/steps]
 // T [degC] = V / 10 [mV/degC]
 // T = R * ((1100 / 1024) / 10) = R * LM35_CONVERSION_CONSTANT
-#define _LM35_CONVERSION_CONSTANT 0.107421875
+// #define _LM35_CONVERSION_CONSTANT 0.107421875
+#define AIN_TO_TEMP(MV, READING) (READING * ((MV / 1024.0)/10.0))
 
 #ifndef LM35_SAMPLE_SIZE
 #define LM35_SAMPLE_SIZE 64
@@ -29,7 +30,7 @@
 
 class LM35 {
   public:
-    LM35();
+    LM35(uint16_t mv);
 
     /**
      * returns true if temperature was updated
@@ -41,6 +42,7 @@ class LM35 {
     double tempAsC();
     double tempAsF();
   private:
+    uint16_t _mv;
     double _sumOfSquares;
     uint8_t _sampleCounter;
     double _lastTempAsC;
