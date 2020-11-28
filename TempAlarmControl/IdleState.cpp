@@ -1,29 +1,32 @@
 #include "IdleState.h"
+#include "SettingMinState.h"
+#include "SettingMaxState.h"
+#include "DisplayOffState.h"
 #include "Arduino.h"
 
 IdleState::IdleState() : ProgramState() {}
 
 void IdleState::setMin(TempAlarmControl* control) {
-    control->changeState(SettingMinState::INSTANCE);
+    changeState(control, SettingMinState::INSTANCE);
 }
 
 void IdleState::setMax(TempAlarmControl* control) {
-    control->changeState(SettingMaxState::INSTANCE);
-}
-
-void IdleState::changeUnits(TempAlarmControl* control) {
-    control->toggleUnits();
+    changeState(control, SettingMaxState::INSTANCE);
 }
 
 void IdleState::toggleDisplay(TempAlarmControl* control) {
     // this state implies display is on
-    control->changeState(DisplayOffState::INSTANCE);
+    changeState(control, DisplayOffState::INSTANCE);
 }
 
 void IdleState::tick(TempAlarmControl* control) {
     if (millis() - _timeEntered > DISPLAY_ON_TIMEOUT) {
-        control->changeState(DisplayOffState::INSTANCE);
+        changeState(control, DisplayOffState::INSTANCE);
     }
 }
 
-const IdleState* IdleState::INSTANCE = new IdleState();
+void IdleState::render(SSD1306Ascii* oled) {
+    // TODO
+}
+
+IdleState* const IdleState::INSTANCE = new IdleState();

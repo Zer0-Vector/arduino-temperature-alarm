@@ -1,4 +1,5 @@
 #include "ProgramState.h"
+#include "DisplayOffState.h"
 
 #define DEFAULT_STATE_TIMEOUT 90000
 
@@ -27,18 +28,14 @@ void ProgramState::clearBuffer() {
     for (;_index >= 0; _index--) {
         _buffer[_index] = '\0';
     }
-    assert(_index == 0);
 }
 void ProgramState::setMin(TempAlarmControl* control) {}
 void ProgramState::setMax(TempAlarmControl* control) {}
-void ProgramState::changeUnits(TempAlarmControl* control) {
-    control->toggleUnits();
-}
 void ProgramState::cancel(TempAlarmControl* control) {}
 void ProgramState::toggleDisplay(TempAlarmControl* control) {}
 void ProgramState::tick(TempAlarmControl* control) {
-    if (timeoutExpired()) {
-        this->changeState(control, TempAlarmControl::ps_DisplayOff);
+    if (millis() - _timeEntered > DEFAULT_STATE_TIMEOUT) {
+        this->changeState(control, DisplayOffState::INSTANCE);
     }
 }
 void ProgramState::entered(TempAlarmControl* control) {
@@ -50,4 +47,8 @@ void ProgramState::changeState(TempAlarmControl* control, ProgramState* state) {
     exiting(control);
     control->changeState(state);
     state->entered(control);
+}
+
+void ProgramState::setDisplayOn(TempAlarmControl* control, bool displayOn) {
+    control->setDisplayOn(displayOn);
 }
