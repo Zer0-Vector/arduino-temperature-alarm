@@ -6,7 +6,7 @@
 #include <SSD1306AsciiAvrI2c.h>
 #include <EEPROM.h>
 
-#include "states/TempAlarmControl.h"
+#include <TempAlarmControl.h>
 
 #define I2C_ADDRESS 0x3C
 #define RST_PIN -1
@@ -43,20 +43,7 @@ SSD1306AsciiAvrI2c oled;
 #define ALPHA_FONT Callibri15
 #define UTF_FONT utf8font10x16
 #define TEMP_DISPLAY_UPDATE_DELAY 2000
-#define BROADCAST_DELAY 250
 #define LOOP_DELAY 100
-
-#define MAX_UNSET 127
-#define MIN_UNSET -128
-
-#define MIN_MIN_TEMP_C 2
-#define MAX_MAX_TEMP_C 126
-
-#define MIN_TEMP_EEPROM_ADDRESS
-#define MAX_TEMP_EEPROM_ADDRESS
-
-int8_t minTemp = MIN_UNSET;
-int8_t maxTemp = MAX_UNSET;
 
 /**
  * A=set max
@@ -67,15 +54,17 @@ int8_t maxTemp = MAX_UNSET;
  * *=display on/off (display turns off after 5 second delay)
  */
 
+TempAlarmControl* control;
 
 void setup() {
     analogReference(DEFAULT);
-
     Serial.begin(9600);
     Serial.println("started setup");
     oled.begin(&Adafruit128x64, I2C_ADDRESS);
     delay(2000);
     oled.set2X();
+
+    control = new TempAlarmControl();
 }
 
 unsigned long lastPrintTime = 0;

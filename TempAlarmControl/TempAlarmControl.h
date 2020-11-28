@@ -11,37 +11,43 @@
 
 #define CONFIG_DATA_ID 65123
 
-#include "TempAlarmStates.h"
+#define TEMP_FONT TimesNewRoman16_bold
+#define ALPHA_FONT Callibri15
+#define UTF_FONT utf8font10x16
+
+#define LEFT_PADDING 3
+
+class ProgramState;
 
 struct TempAlarmConfig {
-    TempAlarmConfig() : 
-        minThreshold(MIN_UNSET), maxThreshold(MAX_UNSET), convertToF(true) {}
-
-    int8_t minThreshold;
-    int8_t maxThreshold;
-    bool convertToF;
+    int8_t minThreshold = MIN_UNSET;
+    int8_t maxThreshold = MAX_UNSET;
+    bool convertToF = true;
     const uint16_t ID = CONFIG_DATA_ID;
 };
 
 class TempAlarmControl {
     public:
         TempAlarmControl();
-        ~TempAlarmControl();
         void keypressed(char key);
-        void triggerAlarm();
         void render(SSD1306Ascii* oled, LM35* lm35);
-        void tick();
-    private:
-        friend class ProgramState;
-
+        void tick(LM35* lm35);
+    protected:
         void changeState(ProgramState* state);
         void setDisplayOn(bool displayOn);
-        void toggleUnits();
         void saveConfigToDisk();
+        void suppressAlarmSound();
+        friend class ProgramState;
     private:
         ProgramState* _state;
-        bool _alarmOn;
+        bool _invertDisplay;
+        bool _alarmSoundOn;
         bool _displayOn;
-        TempAlarmConfig _config;
+        TempAlarmConfig* _config;
         void _renderTempRow(SSD1306Ascii* oled, LM35* lm35);
+        bool _checkTemp(LM35* lm35);
+        void _alarmOn();
+        void _alarmOff();
+        void _playSound();
+        void _toggleUnits();
 };

@@ -1,4 +1,7 @@
 #include "DisplayOffState.h"
+#include "SettingMaxState.h"
+#include "SettingMinState.h"
+#include "IdleState.h"
 
 DisplayOffState::DisplayOffState() : ProgramState() {}
 
@@ -20,15 +23,19 @@ void DisplayOffState::toggleDisplay(TempAlarmControl* control) {
 }
 
 void DisplayOffState::entered(TempAlarmControl* control) {
-    control->setDisplayOn(false);
+    setDisplayOn(control, false);
 }
 
 void DisplayOffState::exiting(TempAlarmControl* control) {
-    control->setDisplayOn(true);
+    setDisplayOn(control, true);
 }
 
 void DisplayOffState::tick(TempAlarmControl* control) {
     // nop; remain off
 }
 
-const DisplayOffState* DisplayOffState::INSTANCE = new DisplayOffState();
+void DisplayOffState::render(SSD1306Ascii* oled) {
+    // nop
+}
+
+DisplayOffState* const DisplayOffState::INSTANCE = new DisplayOffState();

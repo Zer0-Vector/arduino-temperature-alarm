@@ -1,8 +1,7 @@
 #pragma once
 
 #include <SSD1306Ascii.h>
-
-class TempAlarmControl;
+#include "TempAlarmControl.h"
 
 #define MAX_BUFFER_LEN 5
 
@@ -12,11 +11,11 @@ class ProgramState {
         virtual void numberInput(char n);
         virtual void setMin(TempAlarmControl* control);
         virtual void setMax(TempAlarmControl* control);
-        virtual void changeUnits(TempAlarmControl* control);
         virtual void cancel(TempAlarmControl* control);
         virtual void toggleDisplay(TempAlarmControl* control);
         virtual void tick(TempAlarmControl* control);
-        virtual void render(SSD1306Ascii* oled);
+        virtual void render(SSD1306Ascii* oled) = 0;// FIXME implement in subclasses
+        void setDisplayOn(TempAlarmControl* control, bool displayOn);
     protected:
         ProgramState();
         void changeState(TempAlarmControl* control, ProgramState* state);
@@ -25,6 +24,7 @@ class ProgramState {
 
         virtual void entered(TempAlarmControl* control);
         virtual void exiting(TempAlarmControl* control);
+
     private:
         bool _bufferOpen;
         uint8_t _index;
