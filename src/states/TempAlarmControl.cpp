@@ -1,5 +1,22 @@
 #include "TempAlarmControl.h"
 
+#include <SSD1306Ascii.h>
+#include <LM35.h>
+#include <EEPROM.h>
+
+TempAlarmControl::TempAlarmControl() {
+    _alarmOn = false;
+    _displayOn = true;
+    TempAlarmConfig config;
+    EEPROM.get(0, config);
+    if (config.ID != CONFIG_DATA_ID) {
+        _config = TempAlarmConfig();
+    } else {
+        _config = config;
+    }
+    this->changeState(ps_IdleState);
+}
+
 void TempAlarmControl::keypressed(char key) {
     switch (key) {
         case '1':
@@ -13,32 +30,60 @@ void TempAlarmControl::keypressed(char key) {
         case '9':
         case '0':
         case '#': // aka '.'
-            _progState->numberInput(key);
+            _state->numberInput(key);
             break;
         case '*': // toggle display on/off
-            _progState->toggleDisplay(this);
+            _state->toggleDisplay(this);
             break;
         case 'A': // set min temp
-            _progState->setMin(this);
+            _state->setMin(this);
             break;
         case 'B': // set max temp
-            _progState->setMax(this);
+            _state->setMax(this);
             break;
         case 'C': // toggle units C/F
-            _progState->changeUnits(this);
+            _convertToF = !_convertToF;
+            _saveUnitsToDisk();
             break;
         case 'D': // cancel/silence
-            _progState->cancel(this);
+            _state->cancel(this);
             break;
         default:
             // error!
     }
 }
 
-void TempAlarmControl::changeProgramState(ProgramState* state) {
-    _progState = state;
+void TempAlarmControl::changeState(ProgramState* state) {
+    _state = state;
 }
 
-void TempAlarmControl::changeDisplayState(DisplayState* state) {
-    _dispState = state;
+void TempAlarmControl::tick() {
+    _state->tick(this);
+}
+
+void TempAlarmControl::triggerAlarm() {
+    _alarmOn = true;
+}
+
+void TempAlarmControl::render(SSD1306Ascii* oled, LM35* lm35) {
+    _renderTempRow(oled, lm35);
+    _state->render(this);
+}
+
+void TempAlarmControl::_renderTempRow(SSD1306Ascii* oled, LM35* lm35) {
+    if (_alarmOn) {
+        oled.setInvertMode(true);
+    } else {
+        oled.setInvertMode(false);
+    }
+    // TODO render temp
+}
+
+void TempAlarmControl::saveConfigToDisk() {
+    EEPROM.put(0, this->_config);
+}
+
+void toggleUnits() {
+    config.convertToF = !config.convertToF;
+    saveConfigToDisk();
 }
