@@ -16,7 +16,7 @@
 
 #define DEBUG
 
-static LM35 temp(1500);
+static LM35 temp(1100);
 
 const unsigned long startTime = millis();
 
@@ -33,11 +33,7 @@ byte colPins[KEYPAD_COLS] = { 8, 7, 6, 5 };
 Keypad kp = Keypad((char*)hexaKeys, rowPins, colPins, KEYPAD_ROWS, KEYPAD_COLS);
 SSD1306AsciiAvrI2c oled;
 
-// TODO 1. store alarm values
-// TODO 2. make alarm sound/flash light
-// TOOD 4. use keypad to configure alarm values
-// TODO 5. use keypad to switch from F to C
-// TODO 6. use keypad to calibrate
+// TODO 1. use state machine to drive rendering
 
 #define TEMP_FONT TimesNewRoman16_bold
 #define ALPHA_FONT Callibri15
@@ -57,7 +53,7 @@ SSD1306AsciiAvrI2c oled;
 TempAlarmControl* control;
 
 void setup() {
-    analogReference(DEFAULT);
+    analogReference(EXTERNAL);
     Serial.begin(9600);
     Serial.println("started setup");
     oled.begin(&Adafruit128x64, I2C_ADDRESS);
