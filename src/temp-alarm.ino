@@ -1,4 +1,4 @@
-#include <Keypad.h>
+// #include <Keypad.h>
 
 #define LM35_LOAD_PIN A7
 #define LM35_SAMPLE_SIZE 128
@@ -14,14 +14,15 @@
 #define KEYPAD_ROWS 4
 #define KEYPAD_COLS 4
 
-// CKE
-#define CLOCK_ENABLE    4
-// LD
-#define LOAD            7
-// DATA
-#define DATA_IN         5
 // CLK
-#define CLOCK_IN        6
+#define SKPIN_CLK 6
+// SH/~LD
+#define SKPIN_LD 7
+// Q_H
+#define SKPIN_DATA 5
+// CLK INH
+#define SKPIN_CKE 4
+#include <SerialKeypad.h>
 
 #define DEBUG
 
@@ -29,17 +30,19 @@ static LM35 temp(1100);
 
 const unsigned long startTime = millis();
 
-const char hexaKeys[KEYPAD_ROWS][KEYPAD_COLS] = {
-    { '1', '2', '3', 'A' },
-    { '4', '5', '6', 'B' },
-    { '7', '8', '9', 'C' },
-    { '*', '0', '#', 'D' },
-};
+// const char hexaKeys[KEYPAD_ROWS][KEYPAD_COLS] = {
+//     { '1', '2', '3', 'A' },
+//     { '4', '5', '6', 'B' },
+//     { '7', '8', '9', 'C' },
+//     { '*', '0', '#', 'D' },
+// };
 
-byte rowPins[KEYPAD_ROWS] = { 12, 11, 10, 9 };
-byte colPins[KEYPAD_COLS] = { 8, 7, 6, 5 };
+// byte rowPins[KEYPAD_ROWS] = { 12, 11, 10, 9 };
+// byte colPins[KEYPAD_COLS] = { 8, 7, 6, 5 };
 
-Keypad kp = Keypad((char*)hexaKeys, rowPins, colPins, KEYPAD_ROWS, KEYPAD_COLS);
+// Keypad kp = Keypad((char*)hexaKeys, rowPins, colPins, KEYPAD_ROWS, KEYPAD_COLS);
+
+SerialKeypad skp(SKPIN_CLK, SKPIN_LD, SKPIN_CKE, SKPIN_DATA);
 SSD1306AsciiAvrI2c oled;
 
 // TODO 1. use state machine to drive rendering
@@ -85,21 +88,24 @@ unsigned long elapsed() {
 #define LEFT_PADDING 3
 
 bool keydown = false;
-char currentKey = NULL;
+// char currentKey = NULL;
+byte currentKey = NULL;
 unsigned long keydownTime = 0;
 #define KEYDOWN_DECAY 250
 
 void loop() {
     oled.setFont(TEMP_FONT);
     uint8_t rows = oled.fontRows();
-    currentKey = kp.getKey();
+    // currentKey = kp.getKey();
+    currentKey = skp.getKey();
     if (currentKey) {
         keydown = true;
         keydownTime = elapsed();
         oled.setFont(ALPHA_FONT);
-        Serial.println(currentKey);
+        Serial.print("KeyCode: 0x");
+        Serial.println(currentKey, HEX);
         oled.setCursor(LEFT_PADDING, rows);
-        oled.print(currentKey);
+        oled.print(currentKey, HEX);
     } else if (keydown && (elapsed() - keydownTime) > KEYDOWN_DECAY) {
         keydown = false;
         oled.clear(0,128,rows,2*rows);
