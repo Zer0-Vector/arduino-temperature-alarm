@@ -14,6 +14,15 @@
 #define KEYPAD_ROWS 4
 #define KEYPAD_COLS 4
 
+// CKE
+#define CLOCK_ENABLE    4
+// LD
+#define LOAD            7
+// DATA
+#define DATA_IN         5
+// CLK
+#define CLOCK_IN        6
+
 #define DEBUG
 
 static LM35 temp(1100);
