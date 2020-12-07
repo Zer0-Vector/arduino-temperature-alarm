@@ -30,21 +30,15 @@ LM35 temp(1100);
 
 const unsigned long startTime = millis();
 
-// const char hexaKeys[KEYPAD_ROWS][KEYPAD_COLS] = {
-//     { '1', '2', '3', 'A' },
-//     { '4', '5', '6', 'B' },
-//     { '7', '8', '9', 'C' },
-//     { '*', '0', '#', 'D' },
-// };
-
-// byte rowPins[KEYPAD_ROWS] = { 12, 11, 10, 9 };
-// byte colPins[KEYPAD_COLS] = { 8, 7, 6, 5 };
-
-// Keypad kp = Keypad((char*)hexaKeys, rowPins, colPins, KEYPAD_ROWS, KEYPAD_COLS);
+// TODO I could swap row/column wires to make this array "right-side up"
+const char hexaKeys[KEYPAD_ROWS*KEYPAD_COLS] = {
+    '1', '4', '7', '*',
+    '2', '5', '8', '0',
+    '3', '6', '9', '#',
+    'A', 'B', 'C', 'D'
+};
 
 SSD1306AsciiAvrI2c oled;
-
-// TODO 1. use state machine to drive rendering
 
 #define TEMP_FONT TimesNewRoman16_bold
 #define ALPHA_FONT Callibri15
@@ -73,9 +67,6 @@ void setup() {
     delay(2000);
     oled.set2X();
     Serial.println(F("oled initalized"));
-    
-    // control = new TempAlarmControl();
-    // Serial.println(F("control initialized"));
     
     pinMode(PIN_SS, OUTPUT); // Used to enable 74HC595
     digitalWrite(PIN_SS, HIGH); // init diabled
@@ -135,7 +126,6 @@ uint8_t processKey() {
 uint8_t readKey() {
     // TODO
     uint8_t z = 0;
-
     write595(0b11111111);
     z = read165();
     if (z == 0) {
@@ -192,17 +182,15 @@ void loop() {
         uint8_t currentKey = processKey();
         keyDown = false;
         if (currentKey) {
-            Serial.print(F("Key: "));
-            Serial.print(currentKey, HEX);
-            Serial.print(F(" ("));
-            Serial.print(currentKey, BIN);
-            Serial.println(F(")"));
+            // Serial.print(F("Key: "));
+            // Serial.print(hexaKeys[currentKey-1]);
+            // Serial.print(F(" ("));
+            // Serial.print(currentKey, HEX);
+            // Serial.println(F(")"));
             keydownTime = elapsed();
             oled.setFont(ALPHA_FONT);
-            Serial.print(F("KeyCode: 0x"));
-            Serial.println(currentKey, HEX);
             oled.setCursor(LEFT_PADDING, rows);
-            oled.print(currentKey, HEX);
+            oled.print(hexaKeys[currentKey-1]);
         }
     } else if (elapsed() - keydownTime > KEYDOWN_DECAY) {
         oled.clear(0,128,rows,2*rows);
