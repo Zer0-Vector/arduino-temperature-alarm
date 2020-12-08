@@ -1,5 +1,3 @@
-// #include <Keypad.h>
-
 #define LM35_LOAD_PIN A7
 #define LM35_SAMPLE_SIZE 128
 #include <LM35.h>
@@ -30,7 +28,6 @@ LM35 temp(1100);
 
 const unsigned long startTime = millis();
 
-// TODO I could swap row/column wires to make this array "right-side up"
 const char hexaKeys[KEYPAD_ROWS*KEYPAD_COLS] = {
     '1', '4', '7', '*',
     '2', '5', '8', '0',
@@ -102,7 +99,6 @@ unsigned long elapsed() {
 
 #define LEFT_PADDING 3
 
-// byte currentKey = NULL;
 unsigned long keydownTime = 0;
 #define KEYDOWN_DECAY 250
 
@@ -124,7 +120,6 @@ uint8_t processKey() {
 }
 
 uint8_t readKey() {
-    // TODO
     uint8_t z = 0;
     write595(0b11111111);
     z = read165();
